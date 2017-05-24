@@ -1,1 +1,1 @@
-from .jsonrpcconsumer import JsonRpcConsumer, JsonRpcConsumerTest, JsonRpcException
+from .jsonrpcconsumer import JsonRpcConsumer, JsonRpcConsumerTest, JsonRpcException, JsonRpcApplicationError
