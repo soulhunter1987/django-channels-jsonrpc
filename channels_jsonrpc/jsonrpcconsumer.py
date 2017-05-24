@@ -46,6 +46,20 @@ class JsonRpcException(Exception):
         return json.dumps(self.as_dict())
 
 
+class JsonRpcApplicationError(Exception):
+    """
+    Simple exception class for application errors
+    """
+
+    def __init__(self, code, message, data=None):
+        self.code = code
+        self.message = message
+        self.data = data
+
+    def as_dict(self, rpc_id):
+        return JsonRpcConsumer.error(rpc_id, self.code, self.message, self.data)
+
+
 class MethodNotSupported(Exception):
     pass
 
@@ -284,6 +298,8 @@ class JsonRpcConsumer(WebsocketConsumer):
                         result = self.__process(data, message, is_notification)
                     except JsonRpcException as e:
                         result = e.as_dict()
+                    except JsonRpcApplicationError as e:
+                        result = e.as_dict(data.get('id'))
                     except Exception as e:
                         logger.exception('Application error')
                         result = self.error(data.get('id'),
