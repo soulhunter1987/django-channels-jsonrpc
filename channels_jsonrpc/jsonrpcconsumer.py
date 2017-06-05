@@ -248,7 +248,8 @@ class JsonRpcConsumer(WebsocketConsumer):
                 # notification response
                 status_code = 204
                 if result and 'error' in result:
-                    status_code = self._http_codes[result['error']['code']]
+                    code = result['error']['code']
+                    status_code = self._http_codes[code] if code in self._http_codes else 500
                 result = ''
 
             response = HttpResponse(self.__class__._encode(result), content_type='application/json-rpc',
