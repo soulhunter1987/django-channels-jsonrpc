@@ -391,7 +391,7 @@ class JsonRpcConsumer(WebsocketConsumer):
 
         # log call in debug mode
         if settings.DEBUG:
-            logger.debug('Executing %s(%s)' % (method_name, json.dumps(params)))
+            logger.debug('Executing %s(%s)' % (method_name, cls._encode(params)))
 
         result = JsonRpcConsumer.__get_result(method, params, original_msg)
 
