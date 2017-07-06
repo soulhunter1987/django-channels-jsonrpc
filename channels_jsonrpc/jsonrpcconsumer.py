@@ -214,7 +214,7 @@ class JsonRpcConsumer(WebsocketConsumer):
 
         return JsonRpcConsumer.json_rpc_frame(error=error, _id=_id)
 
-    def http_handler(self, message):
+    def http_handler(self, message, **kwargs):
         """
         Called on HTTP request
         :param message: message received
@@ -234,7 +234,7 @@ class JsonRpcConsumer(WebsocketConsumer):
                 content = request.body.decode('utf-8')
             except (UnicodeDecodeError, MethodNotSupported):
                 content = ''
-            result, is_notification = self.__handle(content, message)
+            result, is_notification = self.__handle(content, message, kwargs)
 
             # Set response status code
             # http://www.jsonrpc.org/historical/json-rpc-over-http.html#response-codes
@@ -276,11 +276,12 @@ class JsonRpcConsumer(WebsocketConsumer):
         if not is_notification:
             self.send(text=self.__class__._encode(result))
 
-    def __handle(self, content, message):
+    def __handle(self, content, message, extra_args=None):
         """
         Handle
         :param content:
         :param message:
+        :param extra_args:
         :return:
         """
         result = None
@@ -297,7 +298,16 @@ class JsonRpcConsumer(WebsocketConsumer):
                     try:
                         if data.get('method') is not None and data.get('id') is None:
                             is_notification = True
-                        result = self.__process(data, message, is_notification)
+
+                        # compose extra arguments
+                        if extra_args is None:
+                            extra_args = {}
+                        if 'original_message' in extra_args:
+                            logger.warning(
+                                "Using 'original_message' as url argument if forbidden, it is a system-reserved name")
+                        extra_args['original_message'] = message
+
+                        result = self.__process(data, is_notification, extra_args)
                     except JsonRpcException as e:
                         result = e.as_dict()
                     except JsonRpcApplicationError as e:
@@ -352,12 +362,12 @@ class JsonRpcConsumer(WebsocketConsumer):
         reply_channel.send({"text": cls._encode(content)})
 
     @classmethod
-    def __process(cls, data, original_msg, is_notification=False):
+    def __process(cls, data, is_notification, extra_args):
         """
         Process the recived data
         :param dict data:
-        :param channels.message.Message original_msg:
         :param bool is_notification:
+        :param dict extra_args:
         :return: dict
         """
 
@@ -379,7 +389,7 @@ class JsonRpcConsumer(WebsocketConsumer):
                 method = cls.available_rpc_notifications[id(cls)][method_name]
             else:
                 method = cls.available_rpc_methods[id(cls)][method_name]
-            proto = original_msg.channel.name.split('.')[0]
+            proto = extra_args['original_message'].channel.name.split('.')[0]
             if not method.options[proto]:
                 raise MethodNotSupported('Method not available through %s' % proto)
         except (KeyError, MethodNotSupported):
@@ -393,7 +403,7 @@ class JsonRpcConsumer(WebsocketConsumer):
         if settings.DEBUG:
             logger.debug('Executing %s(%s)' % (method_name, cls._encode(params)))
 
-        result = JsonRpcConsumer.__get_result(method, params, original_msg)
+        result = JsonRpcConsumer.__get_result(method, params, extra_args)
 
         # check and pack result
         if not is_notification:
@@ -410,15 +420,23 @@ class JsonRpcConsumer(WebsocketConsumer):
         return result
 
     @staticmethod
-    def __get_result(method, params, original_msg):
+    def __get_result(method, params, extra_args):
 
         func_args = getattr(getfullargspec(method), keywords_args)
 
         if func_args and "kwargs" in func_args:
             if isinstance(params, list):
-                result = method(*params, original_message=original_msg)
+                result = method(*params, **extra_args)
             else:
-                result = method(original_message=original_msg, **params)
+                for name, value in extra_args.items():
+                    if name in params:
+                        if name == 'original_message':
+                            txt = "{0} system-reserved argument overrides method param {0}. Change method's param name"
+                        else:
+                            txt = "{0} url param overrides method param {0}. Change url's or method's param name"
+                        logger.warning(txt.format(name))
+                    params[name] = value
+                result = method(**params)
         else:
             if isinstance(params, list):
                 result = method(*params)

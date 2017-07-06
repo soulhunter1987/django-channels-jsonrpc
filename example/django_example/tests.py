@@ -404,7 +404,7 @@ class TestsJsonRPCWebsocketConsumer(ChannelTestCase):
                 _message.channel.name = "websocket.test"
                 _message.payload = "test%s" % _i
                 _res = MyJsonRpcWebsocketConsumerTest._JsonRpcConsumer__process(
-                    {"id": 1, "jsonrpc": "2.0", "method": "ping3", "params": []}, _message)
+                    {"id": 1, "jsonrpc": "2.0", "method": "ping3", "params": []}, False, {'original_message': _message})
                 self.assertEqual(_res['result'], "test%s" % _i)
 
         import threading
@@ -415,7 +415,7 @@ class TestsJsonRPCWebsocketConsumer(ChannelTestCase):
             _message.channel.name = "websocket.test"
             _message.payload = "test%s" % i
             res = MyJsonRpcWebsocketConsumerTest._JsonRpcConsumer__process(
-                {"id": 1, "jsonrpc": "2.0", "method": "ping2", "params": []}, _message)
+                {"id": 1, "jsonrpc": "2.0", "method": "ping2", "params": []}, False, {'original_message': _message})
             self.assertEqual(res['result'], "test%s" % i)
 
     def test_original_message_position_safe(self):
